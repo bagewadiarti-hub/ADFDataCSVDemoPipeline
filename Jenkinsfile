@@ -1,10 +1,13 @@
 pipeline {
+
     agent any
 
-    tools { terraform 'terraform' }
+    tools {
+        terraform 'terraform'
+    }
 
     parameters {
-        choice(name: 'ENV', choices: ['dev','prod'], description: 'Select environment to deploy')
+        choice(name: 'ENV', choices: ['dev','prod'], description: 'Select environment')
     }
 
     stages {
@@ -22,7 +25,7 @@ pipeline {
             }
         }
 
-        // 2️⃣ Terraform Format Check
+        // 2️⃣ Terraform Format
         stage('Terraform Format Check') {
             steps {
                 dir("env/${params.ENV}") {
@@ -60,10 +63,14 @@ pipeline {
             }
         }
 
-        // 6️⃣ Manual Approval (for PROD)
+        // 6️⃣ Manual Approval for PROD
         stage('Manual Approval') {
-            when { expression { params.ENV == 'prod' } }
-            steps { input message: "Approve deployment to PROD?", ok: "Deploy" }
+            when {
+                expression { params.ENV == 'prod' }
+            }
+            steps {
+                input message: 'Approve deployment to PROD?', ok: 'Deploy'
+            }
         }
 
         // 7️⃣ Terraform Apply
@@ -75,36 +82,40 @@ pipeline {
             }
         }
 
-        // 8️⃣ Fetch Terraform Outputs
+        // 8️⃣ Fetch Terraform Outputs (FIXED)
         stage('Fetch Terraform Outputs') {
             steps {
                 dir("env/${params.ENV}") {
                     script {
-                        env.RG_NAME = bat(script: 'terraform output -raw resource_group', returnStdout: true).trim()
-                        env.ADF_NAME = bat(script: 'terraform output -raw data_factory_name', returnStdout: true).trim()
-                        env.STORAGE_ACCOUNT = bat(script: 'terraform output -raw storage_account_name', returnStdout: true).trim()
-                        env.INPUT_CONTAINER = bat(script: 'terraform output -raw input_container_name', returnStdout: true).trim()
-                        env.OUTPUT_CONTAINER = bat(script: 'terraform output -raw output_container_name', returnStdout: true).trim()
-                        env.STORAGE_CONN_STRING = bat(script: 'terraform output -raw storage_connection_string', returnStdout: true).trim()
 
-                        echo "Terraform outputs fetched successfully!"
-                        echo "RG=${env.RG_NAME}, ADF=${env.ADF_NAME}, Storage=${env.STORAGE_ACCOUNT}"
+                        env.RG_NAME = bat(script: '@terraform output -raw resource_group', returnStdout: true).trim()
+                        env.ADF_NAME = bat(script: '@terraform output -raw data_factory_name', returnStdout: true).trim()
+                        env.STORAGE_ACCOUNT = bat(script: '@terraform output -raw storage_account_name', returnStdout: true).trim()
+                        env.INPUT_CONTAINER = bat(script: '@terraform output -raw input_container_name', returnStdout: true).trim()
+                        env.OUTPUT_CONTAINER = bat(script: '@terraform output -raw output_container_name', returnStdout: true).trim()
+                        env.STORAGE_CONN_STRING = bat(script: '@terraform output -raw storage_connection_string', returnStdout: true).trim()
+
+                        echo "Terraform outputs fetched successfully"
+                        echo "Resource Group: ${env.RG_NAME}"
+                        echo "ADF: ${env.ADF_NAME}"
+                        echo "Storage: ${env.STORAGE_ACCOUNT}"
                     }
                 }
             }
         }
 
-        // 9️⃣ Deploy DemoPipeline to ADF
+        // 9️⃣ Deploy ADF Pipeline
         stage('Deploy DemoPipeline to ADF') {
             steps {
                 dir("env/${params.ENV}") {
                     script {
+
                         def rg = env.RG_NAME.trim()
                         def adf = env.ADF_NAME.trim()
 
                         bat 'az datafactory pipeline create --resource-group ' + rg +
                             ' --factory-name ' + adf +
-                            ' --name DemoPipeline --file DemoPipeline.json'
+                            ' --name DemoPipeline --pipeline @DemoPipeline.json'
 
                         echo "DemoPipeline deployed to ADF: ${adf}"
                     }
@@ -112,11 +123,12 @@ pipeline {
             }
         }
 
-        // 🔟 Trigger ADF Demo Pipeline
+        // 🔟 Trigger Pipeline
         stage('Trigger ADF Demo Pipeline') {
             steps {
                 dir("env/${params.ENV}") {
                     script {
+
                         def rg = env.RG_NAME.trim()
                         def adf = env.ADF_NAME.trim()
 
@@ -124,7 +136,7 @@ pipeline {
                             ' --factory-name ' + adf +
                             ' --name DemoPipeline --parameters inputPath=demo-source.csv outputPath=demo-output.csv'
 
-                        echo "ADF DemoPipeline triggered successfully for ${params.ENV}!"
+                        echo "ADF pipeline triggered successfully"
                     }
                 }
             }
@@ -133,14 +145,22 @@ pipeline {
         // 11️⃣ Verify Output
         stage('Verify Output') {
             steps {
-                echo "Check Azure Blob Storage '${env.OUTPUT_CONTAINER}' container for 'demo-output.csv'. It should include uppercase NAME_UPPER column."
+                echo "Check Blob Storage container '${env.OUTPUT_CONTAINER}' for demo-output.csv"
             }
         }
 
     }
 
     post {
-        success { echo "End-to-end demo pipeline executed successfully for ${params.ENV}!" }
-        failure { echo "Pipeline failed. Check Jenkins logs for details." }
+
+        success {
+            echo "Deployment successful for ${params.ENV}"
+        }
+
+        failure {
+            echo "Pipeline failed. Check Jenkins logs."
+        }
+
     }
+
 }
