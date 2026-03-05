@@ -1,27 +1,30 @@
 {
   "name": "DemoPipeline",
   "properties": {
-    "parameters": {
-      "inputPath": { "type": "String", "defaultValue": "demo-source.csv" },
-      "outputPath": { "type": "String", "defaultValue": "demo-output.csv" }
-    },
     "activities": [
       {
-        "name": "CopyAndTransformCSV",
+        "name": "CopyCSV",
         "type": "Copy",
-        "typeProperties": {
-          "source": { "type": "DelimitedTextSource" },
-          "sink": { "type": "DelimitedTextSink" },
-          "translator": {
-            "type": "TabularTranslator",
-            "mappings": [
-              { "source": { "name": "Name", "type": "String" }, "sink": { "name": "NAME_UPPER", "type": "String" }, "expression": "upper(Name)" },
-              { "source": { "name": "Age", "type": "Int32" }, "sink": { "name": "Age", "type": "Int32" } }
-            ]
+        "inputs": [
+          {
+            "referenceName": "ds_inputcsv",
+            "type": "DatasetReference"
           }
-        },
-        "inputs": [{ "referenceName": "DS_InputCSV", "type": "DatasetReference" }],
-        "outputs": [{ "referenceName": "DS_OutputCSV", "type": "DatasetReference" }]
+        ],
+        "outputs": [
+          {
+            "referenceName": "ds_outputcsv",
+            "type": "DatasetReference"
+          }
+        ],
+        "typeProperties": {
+          "source": {
+            "type": "DelimitedTextSource"
+          },
+          "sink": {
+            "type": "DelimitedTextSink"
+          }
+        }
       }
     ]
   }
