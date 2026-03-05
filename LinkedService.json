@@ -2,7 +2,7 @@
   "properties": {
     "type": "AzureBlobStorage",
     "typeProperties": {
-      "connectionString": "DefaultEndpointsProtocol=https;AccountName=tfstoragedemo177dev;AccountKey=<STORAGE_KEY>;EndpointSuffix=core.windows.net"
+      "connectionString": "<STORAGE_CONNECTION_STRING>"
     }
   }
 }
