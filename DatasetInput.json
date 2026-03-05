@@ -13,7 +13,10 @@
         "fileName": "demo-source.csv"
       },
       "columnDelimiter": ",",
-      "firstRowAsHeader": true
-    }
+      "firstRowAsHeader": true,
+      "quoteChar": "\"",
+      "escapeChar": "\\"
+    },
+    "schema": []
   }
 }
