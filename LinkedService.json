@@ -1,0 +1,9 @@
+{
+  "name": "ls_blobstorage",
+  "properties": {
+    "type": "AzureBlobStorage",
+    "typeProperties": {
+      "connectionString": "DefaultEndpointsProtocol=https;AccountName=tfstoragedemo177dev;EndpointSuffix=core.windows.net"
+    }
+  }
+}
