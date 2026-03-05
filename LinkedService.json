@@ -1,8 +1,6 @@
 {
-  "properties": {
-    "type": "AzureBlobStorage",
-    "typeProperties": {
-      "connectionString": "<STORAGE_CONNECTION_STRING>"
-    }
+  "type": "AzureBlobStorage",
+  "typeProperties": {
+    "connectionString": "<STORAGE_CONNECTION_STRING>"
   }
 }
