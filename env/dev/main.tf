@@ -3,8 +3,8 @@ provider "azurerm" {
 }
 
 resource "azurerm_resource_group" "rg" {
-  name     = "tf-rg-dev"
-  location = "WestUS2"
+  name     = "tf-rg-${var.env}"
+  location = "westus2"
 }
 
 resource "azurerm_storage_account" "storage" {
