@@ -82,7 +82,7 @@ pipeline {
             }
         }
 
-        // 8️⃣ Fetch Terraform Outputs (FIXED)
+        // 8️⃣ Fetch Terraform Outputs
         stage('Fetch Terraform Outputs') {
             steps {
                 dir("env/${params.ENV}") {
@@ -93,7 +93,6 @@ pipeline {
                         env.STORAGE_ACCOUNT = bat(script: '@terraform output -raw storage_account_name', returnStdout: true).trim()
                         env.INPUT_CONTAINER = bat(script: '@terraform output -raw input_container_name', returnStdout: true).trim()
                         env.OUTPUT_CONTAINER = bat(script: '@terraform output -raw output_container_name', returnStdout: true).trim()
-                        env.STORAGE_CONN_STRING = bat(script: '@terraform output -raw storage_connection_string', returnStdout: true).trim()
 
                         echo "Terraform outputs fetched successfully"
                         echo "Resource Group: ${env.RG_NAME}"
@@ -103,72 +102,71 @@ pipeline {
                 }
             }
         }
-// 9️⃣ Deploy ADF Linked Service and Datasets
-stage('Deploy ADF Dependencies') {
-    steps {
-        dir("env/${params.ENV}") {
-            script {
 
-                def rg = env.RG_NAME.trim()
-                def adf = env.ADF_NAME.trim()
-
-                bat 'az datafactory linked-service create --resource-group ' + rg +
-                    ' --factory-name ' + adf +
-                    ' --name ls_blobstorage --file @../../LinkedService.json'
-
-                bat 'az datafactory dataset create --resource-group ' + rg +
-                    ' --factory-name ' + adf +
-                    ' --name ds_inputcsv --file @../../DatasetInput.json'
-
-                bat 'az datafactory dataset create --resource-group ' + rg +
-                    ' --factory-name ' + adf +
-                    ' --name ds_outputcsv --file @../../DatasetOutput.json'
-
-                echo "ADF Linked Service and Datasets deployed successfully"
-
-            }
-        }
-    }
-}
-        // 9️⃣ Deploy ADF Pipeline
-       stage('Deploy DemoPipeline to ADF') {
-    steps {
-        dir("env/${params.ENV}") {
-            script {
-
-                def rg = env.RG_NAME.trim()
-                def adf = env.ADF_NAME.trim()
-
-                bat 'az datafactory pipeline create --resource-group ' + rg +
-                    ' --factory-name ' + adf +
-                    ' --name DemoPipeline --pipeline @../../DemoPipeline.json'
-
-                echo "ADF pipeline deployed successfully"
-            }
-        }
-    }
-}
-
-        // 🔟 Trigger Pipeline
-        stage('Trigger ADF Demo Pipeline') {
+        // 9️⃣ Deploy ADF Linked Service and Datasets
+        stage('Deploy ADF Dependencies') {
             steps {
                 dir("env/${params.ENV}") {
                     script {
 
-                        def rg = env.RG_NAME.trim()
-                        def adf = env.ADF_NAME.trim()
+                        def rg = env.RG_NAME
+                        def adf = env.ADF_NAME
 
-                        bat 'az datafactory pipeline create-run --resource-group ' + rg +
+                        bat 'az datafactory linked-service create --resource-group ' + rg +
                             ' --factory-name ' + adf +
-                            ' --name DemoPipeline --parameters inputPath=demo-source.csv outputPath=demo-output.csv'
+                            ' --name ls_blobstorage --properties @../../LinkedService.json'
 
-                        echo "ADF pipeline triggered successfully"
+                        bat 'az datafactory dataset create --resource-group ' + rg +
+                            ' --factory-name ' + adf +
+                            ' --name ds_inputcsv --properties @../../DatasetInput.json'
+
+                        bat 'az datafactory dataset create --resource-group ' + rg +
+                            ' --factory-name ' + adf +
+                            ' --name ds_outputcsv --properties @../../DatasetOutput.json'
+
+                        echo "ADF Linked Service and Datasets deployed successfully"
                     }
                 }
             }
         }
 
-        // 11️⃣ Verify Output
+        // 🔟 Deploy ADF Pipeline
+        stage('Deploy DemoPipeline to ADF') {
+            steps {
+                dir("env/${params.ENV}") {
+                    script {
+
+                        def rg = env.RG_NAME
+                        def adf = env.ADF_NAME
+
+                        bat 'az datafactory pipeline create --resource-group ' + rg +
+                            ' --factory-name ' + adf +
+                            ' --name DemoPipeline --properties @../../DemoPipeline.json'
+
+                        echo "ADF pipeline deployed successfully"
+                    }
+                }
+            }
+        }
+
+        // 11️⃣ Trigger ADF Pipeline
+        stage('Trigger ADF Demo Pipeline') {
+            steps {
+                script {
+
+                    def rg = env.RG_NAME
+                    def adf = env.ADF_NAME
+
+                    bat 'az datafactory pipeline create-run --resource-group ' + rg +
+                        ' --factory-name ' + adf +
+                        ' --name DemoPipeline --parameters inputPath=demo-source.csv outputPath=demo-output.csv'
+
+                    echo "ADF pipeline triggered successfully"
+                }
+            }
+        }
+
+        // 12️⃣ Verify Output
         stage('Verify Output') {
             steps {
                 echo "Check Blob Storage container '${env.OUTPUT_CONTAINER}' for demo-output.csv"
@@ -188,5 +186,5 @@ stage('Deploy ADF Dependencies') {
         }
 
     }
-
 }
+
