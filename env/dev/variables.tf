@@ -1,2 +1,4 @@
-# Placeholder for variables if needed
-variable "env" { type = string, default = "dev" }
+variable "env" {
+  type    = string
+  default = "dev"
+}
