@@ -103,7 +103,33 @@ pipeline {
                 }
             }
         }
+// 9️⃣ Deploy ADF Linked Service and Datasets
+stage('Deploy ADF Dependencies') {
+    steps {
+        dir("env/${params.ENV}") {
+            script {
 
+                def rg = env.RG_NAME.trim()
+                def adf = env.ADF_NAME.trim()
+
+                bat 'az datafactory linked-service create --resource-group ' + rg +
+                    ' --factory-name ' + adf +
+                    ' --name ls_blobstorage --file @../../LinkedService.json'
+
+                bat 'az datafactory dataset create --resource-group ' + rg +
+                    ' --factory-name ' + adf +
+                    ' --name ds_inputcsv --file @../../DatasetInput.json'
+
+                bat 'az datafactory dataset create --resource-group ' + rg +
+                    ' --factory-name ' + adf +
+                    ' --name ds_outputcsv --file @../../DatasetOutput.json'
+
+                echo "ADF Linked Service and Datasets deployed successfully"
+
+            }
+        }
+    }
+}
         // 9️⃣ Deploy ADF Pipeline
        stage('Deploy DemoPipeline to ADF') {
     steps {
