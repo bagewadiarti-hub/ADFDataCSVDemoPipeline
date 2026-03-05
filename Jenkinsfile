@@ -1,5 +1,4 @@
 pipeline {
-
     agent any
 
     tools {
@@ -87,12 +86,12 @@ pipeline {
             steps {
                 dir("env/${params.ENV}") {
                     script {
-
                         env.RG_NAME = bat(script: '@terraform output -raw resource_group', returnStdout: true).trim()
                         env.ADF_NAME = bat(script: '@terraform output -raw data_factory_name', returnStdout: true).trim()
                         env.STORAGE_ACCOUNT = bat(script: '@terraform output -raw storage_account_name', returnStdout: true).trim()
                         env.INPUT_CONTAINER = bat(script: '@terraform output -raw input_container_name', returnStdout: true).trim()
                         env.OUTPUT_CONTAINER = bat(script: '@terraform output -raw output_container_name', returnStdout: true).trim()
+                        env.STORAGE_CONNECTION_STRING = bat(script: '@terraform output -raw storage_connection_string', returnStdout: true).trim()
 
                         echo "Terraform outputs fetched successfully"
                         echo "Resource Group: ${env.RG_NAME}"
@@ -103,18 +102,31 @@ pipeline {
             }
         }
 
-        // 9️⃣ Deploy ADF Linked Service and Datasets
+        // 9️⃣ Prepare LinkedService JSON dynamically
+        stage('Prepare LinkedService JSON') {
+            steps {
+                dir("env/${params.ENV}") {
+                    script {
+                        bat """
+                        powershell -Command "(Get-Content ../../LinkedService.json) -replace '<STORAGE_CONNECTION_STRING>', '${env.STORAGE_CONNECTION_STRING}' | Set-Content LinkedServiceTemp.json"
+                        """
+                        echo "LinkedServiceTemp.json created with dynamic connection string."
+                    }
+                }
+            }
+        }
+
+        // 🔟 Deploy ADF Linked Service and Datasets
         stage('Deploy ADF Dependencies') {
             steps {
                 dir("env/${params.ENV}") {
                     script {
-
                         def rg = env.RG_NAME
                         def adf = env.ADF_NAME
 
                         bat 'az datafactory linked-service create --resource-group ' + rg +
                             ' --factory-name ' + adf +
-                            ' --name ls_blobstorage --properties @../../LinkedService.json'
+                            ' --name ls_blobstorage --properties @LinkedServiceTemp.json'
 
                         bat 'az datafactory dataset create --resource-group ' + rg +
                             ' --factory-name ' + adf +
@@ -130,12 +142,11 @@ pipeline {
             }
         }
 
-        // 🔟 Deploy ADF Pipeline
+        // 1️⃣1️⃣ Deploy ADF Pipeline
         stage('Deploy DemoPipeline to ADF') {
             steps {
                 dir("env/${params.ENV}") {
                     script {
-
                         def rg = env.RG_NAME
                         def adf = env.ADF_NAME
 
@@ -149,24 +160,23 @@ pipeline {
             }
         }
 
-        // 11️⃣ Trigger ADF Pipeline
+        // 1️⃣2️⃣ Trigger ADF Pipeline
         stage('Trigger ADF Demo Pipeline') {
-    steps {
-        script {
+            steps {
+                script {
+                    def rg = env.RG_NAME
+                    def adf = env.ADF_NAME
 
-            def rg = env.RG_NAME
-            def adf = env.ADF_NAME
+                    bat 'az datafactory pipeline create-run --resource-group ' + rg +
+                        ' --factory-name ' + adf +
+                        ' --name DemoPipeline --parameters inputPath=demo-source.csv outputPath=demo-output.csv'
 
-            bat 'az datafactory pipeline create-run --resource-group ' + rg +
-                ' --factory-name ' + adf +
-                ' --name DemoPipeline --parameters inputPath=demo-source.csv outputPath=demo-output.csv'
-
-            echo "ADF pipeline triggered successfully"
+                    echo "ADF pipeline triggered successfully"
+                }
+            }
         }
-    }
-}
 
-        // 12️⃣ Verify Output
+        // 1️⃣3️⃣ Verify Output
         stage('Verify Output') {
             steps {
                 echo "Check Blob Storage container '${env.OUTPUT_CONTAINER}' for demo-output.csv"
@@ -187,4 +197,3 @@ pipeline {
 
     }
 }
-
