@@ -151,20 +151,10 @@ pipeline {
 
         // 11️⃣ Trigger ADF Pipeline
         stage('Trigger ADF Demo Pipeline') {
-            steps {
-                script {
-
-                    def rg = env.RG_NAME
-                    def adf = env.ADF_NAME
-
-                    bat 'az datafactory pipeline create-run --resource-group ' + rg +
-                        ' --factory-name ' + adf +
-                        ' --name DemoPipeline --parameters inputPath=demo-source.csv outputPath=demo-output.csv'
-
-                    echo "ADF pipeline triggered successfully"
-                }
-            }
-        }
+    steps {
+        bat 'az datafactory pipeline create-run --resource-group tf-rg-dev --factory-name adfdemo177dev --name DemoPipeline --parameters inputPath=demo-source.csv outputPath=demo-output.csv'
+    }
+}
 
         // 12️⃣ Verify Output
         stage('Verify Output') {
