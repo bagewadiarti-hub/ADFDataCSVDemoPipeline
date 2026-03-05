@@ -1,25 +1,28 @@
-provider "azurerm" {
-  features {}
-}
-
-# Resource Group
-resource "azurerm_resource_group" "rg" {
-  name     = "tf-rg"
-  location = "WestUS2"
-}
-
-# Storage Account (for state + CSV)
-resource "azurerm_storage_account" "storage" {
-  name                     = "tfstoragedemo177"
-  resource_group_name      = azurerm_resource_group.rg.name
-  location                 = azurerm_resource_group.rg.location
-  account_tier             = "Standard"
-  account_replication_type = "LRS"
-}
-
-# Data Factory
-resource "azurerm_data_factory" "adf" {
-  name                = "adfdemo177"
-  location            = azurerm_resource_group.rg.location
-  resource_group_name = azurerm_resource_group.rg.name
+{
+  "name": "DemoPipeline",
+  "properties": {
+    "parameters": {
+      "inputPath": { "type": "String", "defaultValue": "demo-source.csv" },
+      "outputPath": { "type": "String", "defaultValue": "demo-output.csv" }
+    },
+    "activities": [
+      {
+        "name": "CopyAndTransformCSV",
+        "type": "Copy",
+        "typeProperties": {
+          "source": { "type": "DelimitedTextSource" },
+          "sink": { "type": "DelimitedTextSink" },
+          "translator": {
+            "type": "TabularTranslator",
+            "mappings": [
+              { "source": { "name": "Name", "type": "String" }, "sink": { "name": "NAME_UPPER", "type": "String" }, "expression": "upper(Name)" },
+              { "source": { "name": "Age", "type": "Int32" }, "sink": { "name": "Age", "type": "Int32" } }
+            ]
+          }
+        },
+        "inputs": [{ "referenceName": "DS_InputCSV", "type": "DatasetReference" }],
+        "outputs": [{ "referenceName": "DS_OutputCSV", "type": "DatasetReference" }]
+      }
+    ]
+  }
 }
