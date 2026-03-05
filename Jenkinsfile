@@ -141,7 +141,7 @@ pipeline {
 
                         bat 'az datafactory pipeline create --resource-group ' + rg +
                             ' --factory-name ' + adf +
-                            ' --name DemoPipeline --properties @../../DemoPipeline.json'
+                            ' --name DemoPipeline --pipeline @../../DemoPipeline.json'
 
                         echo "ADF pipeline deployed successfully"
                     }
