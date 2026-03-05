@@ -1,31 +1,14 @@
 {
-  "name": "DemoPipeline",
-  "properties": {
-    "activities": [
-      {
-        "name": "CopyCSV",
-        "type": "Copy",
-        "inputs": [
-          {
-            "referenceName": "ds_inputcsv",
-            "type": "DatasetReference"
-          }
-        ],
-        "outputs": [
-          {
-            "referenceName": "ds_outputcsv",
-            "type": "DatasetReference"
-          }
-        ],
-        "typeProperties": {
-          "source": {
-            "type": "DelimitedTextSource"
-          },
-          "sink": {
-            "type": "DelimitedTextSink"
-          }
-        }
+  "activities": [
+    {
+      "name": "CopyCSV",
+      "type": "Copy",
+      "inputs": [{ "referenceName": "ds_inputcsv", "type": "DatasetReference" }],
+      "outputs": [{ "referenceName": "ds_outputcsv", "type": "DatasetReference" }],
+      "typeProperties": {
+        "source": { "type": "DelimitedTextSource" },
+        "sink": { "type": "DelimitedTextSink" }
       }
-    ]
-  }
+    }
+  ]
 }
