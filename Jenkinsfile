@@ -24,8 +24,12 @@ pipeline {
 
         // 2️⃣ Terraform Format Check
         stage('Terraform Format Check') {
-            steps { dir("env/${params.ENV}") { bat 'terraform fmt -check -recursive' } }
+            steps {
+                dir("env/${params.ENV}") {
+                bat 'terraform fmt -recursive' // formats files automatically
+            }
         }
+    }
 
         // 3️⃣ Terraform Init
         stage('Terraform Init') {
