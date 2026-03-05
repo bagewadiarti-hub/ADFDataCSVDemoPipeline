@@ -105,23 +105,23 @@ pipeline {
         }
 
         // 9️⃣ Deploy ADF Pipeline
-        stage('Deploy DemoPipeline to ADF') {
-            steps {
-                dir("env/${params.ENV}") {
-                    script {
+       stage('Deploy DemoPipeline to ADF') {
+    steps {
+        dir("env/${params.ENV}") {
+            script {
 
-                        def rg = env.RG_NAME.trim()
-                        def adf = env.ADF_NAME.trim()
+                def rg = env.RG_NAME.trim()
+                def adf = env.ADF_NAME.trim()
 
-                        bat 'az datafactory pipeline create --resource-group ' + rg +
-                            ' --factory-name ' + adf +
-                            ' --name DemoPipeline --pipeline @DemoPipeline.json'
+                bat 'az datafactory pipeline create --resource-group ' + rg +
+                    ' --factory-name ' + adf +
+                    ' --name DemoPipeline --pipeline @../DemoPipeline.json'
 
-                        echo "DemoPipeline deployed to ADF: ${adf}"
-                    }
-                }
+                echo "DemoPipeline deployed to ADF: ${adf}"
             }
         }
+    }
+}
 
         // 🔟 Trigger Pipeline
         stage('Trigger ADF Demo Pipeline') {
