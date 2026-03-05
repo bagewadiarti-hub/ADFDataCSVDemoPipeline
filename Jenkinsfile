@@ -86,11 +86,11 @@ pipeline {
             steps {
                 dir("env/${params.ENV}") {
                     script {
-                        env.RG_NAME = bat(script: '@terraform output -raw resource_group', returnStdout: true).trim()
-                        env.ADF_NAME = bat(script: '@terraform output -raw data_factory_name', returnStdout: true).trim()
-                        env.STORAGE_ACCOUNT = bat(script: '@terraform output -raw storage_account_name', returnStdout: true).trim()
-                        env.INPUT_CONTAINER = bat(script: '@terraform output -raw input_container_name', returnStdout: true).trim()
-                        env.OUTPUT_CONTAINER = bat(script: '@terraform output -raw output_container_name', returnStdout: true).trim()
+                        env.RG_NAME                  = bat(script: '@terraform output -raw resource_group', returnStdout: true).trim()
+                        env.ADF_NAME                 = bat(script: '@terraform output -raw data_factory_name', returnStdout: true).trim()
+                        env.STORAGE_ACCOUNT          = bat(script: '@terraform output -raw storage_account_name', returnStdout: true).trim()
+                        env.INPUT_CONTAINER          = bat(script: '@terraform output -raw input_container_name', returnStdout: true).trim()
+                        env.OUTPUT_CONTAINER         = bat(script: '@terraform output -raw output_container_name', returnStdout: true).trim()
                         env.STORAGE_CONNECTION_STRING = bat(script: '@terraform output -raw storage_connection_string', returnStdout: true).trim()
 
                         echo "Terraform outputs fetched successfully"
@@ -103,41 +103,53 @@ pipeline {
         }
 
         // 9️⃣ Prepare LinkedService JSON dynamically
+        // FIX: Write LinkedServiceTemp.json to WORKSPACE root so all subsequent
+        //      stages can reach it with a stable, consistent path.
+        //      Previously it was written into env/dev/ by one stage but read
+        //      from ../../LinkedService.json (repo root) by the next — wrong file.
         stage('Prepare LinkedService JSON') {
             steps {
-                dir("env/${params.ENV}") {
-                    script {
-                        bat """
-                        powershell -Command "(Get-Content ../../LinkedService.json) -replace '<STORAGE_CONNECTION_STRING>', '${env.STORAGE_CONNECTION_STRING}' | Set-Content LinkedServiceTemp.json"
-                        """
-                        echo "LinkedServiceTemp.json created with dynamic connection string."
-                    }
+                script {
+                    // Escape any backslashes in the connection string so PowerShell
+                    // doesn't interpret them as escape sequences inside the string.
+                    def safeConnStr = env.STORAGE_CONNECTION_STRING.replace('\\', '\\\\')
+
+                    bat """
+                        powershell -Command ^
+                          "(Get-Content LinkedService.json) ^
+                          -replace '<STORAGE_CONNECTION_STRING>', '${safeConnStr}' ^
+                          | Set-Content LinkedServiceTemp.json"
+                    """
+
+                    // ✅ Verify the file was written and contains valid content
+                    bat 'powershell -Command "Get-Content LinkedServiceTemp.json"'
+                    echo "LinkedServiceTemp.json created with dynamic connection string."
                 }
             }
         }
 
         // 🔟 Deploy ADF Linked Service and Datasets
+        // FIX: Use @LinkedServiceTemp.json (workspace root, no path prefix needed)
+        //      instead of @../../LinkedService.json (original unmodified template).
         stage('Deploy ADF Dependencies') {
             steps {
-                dir("env/${params.ENV}") {
-                    script {
-                        def rg = env.RG_NAME
-                        def adf = env.ADF_NAME
+                script {
+                    def rg  = env.RG_NAME
+                    def adf = env.ADF_NAME
 
-                        bat 'az datafactory linked-service create --resource-group ' + rg +
-                            ' --factory-name ' + adf +
-                            ' --name ls_blobstorage --properties @LinkedServiceTemp.json'
+                    bat 'az datafactory linked-service create --resource-group ' + rg +
+                        ' --factory-name ' + adf +
+                        ' --name ls_blobstorage --properties @LinkedServiceTemp.json'
 
-                        bat 'az datafactory dataset create --resource-group ' + rg +
-                            ' --factory-name ' + adf +
-                            ' --name ds_inputcsv --properties @../../DatasetInput.json'
+                    bat 'az datafactory dataset create --resource-group ' + rg +
+                        ' --factory-name ' + adf +
+                        ' --name ds_inputcsv --properties @DatasetInput.json'
 
-                        bat 'az datafactory dataset create --resource-group ' + rg +
-                            ' --factory-name ' + adf +
-                            ' --name ds_outputcsv --properties @../../DatasetOutput.json'
+                    bat 'az datafactory dataset create --resource-group ' + rg +
+                        ' --factory-name ' + adf +
+                        ' --name ds_outputcsv --properties @DatasetOutput.json'
 
-                        echo "ADF Linked Service and Datasets deployed successfully"
-                    }
+                    echo "ADF Linked Service and Datasets deployed successfully"
                 }
             }
         }
@@ -145,31 +157,38 @@ pipeline {
         // 1️⃣1️⃣ Deploy ADF Pipeline
         stage('Deploy DemoPipeline to ADF') {
             steps {
-                dir("env/${params.ENV}") {
-                    script {
-                        def rg = env.RG_NAME
-                        def adf = env.ADF_NAME
+                script {
+                    def rg  = env.RG_NAME
+                    def adf = env.ADF_NAME
 
-                        bat 'az datafactory pipeline create --resource-group ' + rg +
-                            ' --factory-name ' + adf +
-                            ' --name DemoPipeline --pipeline @../../DemoPipeline.json'
+                    bat 'az datafactory pipeline create --resource-group ' + rg +
+                        ' --factory-name ' + adf +
+                        ' --name DemoPipeline --pipeline @DemoPipeline.json'
 
-                        echo "ADF pipeline deployed successfully"
-                    }
+                    echo "ADF pipeline deployed successfully"
                 }
             }
         }
 
         // 1️⃣2️⃣ Trigger ADF Pipeline
+        // FIX: az datafactory pipeline create-run expects --parameters as a JSON
+        //      string, not key=value pairs. On Windows bat, inline JSON quoting
+        //      is unreliable, so write params to a temp file and use @file syntax
+        //      — the same pattern used successfully for LinkedService and Datasets.
         stage('Trigger ADF Demo Pipeline') {
             steps {
                 script {
-                    def rg = env.RG_NAME
+                    def rg  = env.RG_NAME
                     def adf = env.ADF_NAME
+
+                    // Write trigger parameters to a JSON file
+                    bat '''
+                        echo {"inputPath": "demo-source.csv", "outputPath": "demo-output.csv"} > trigger_params.json
+                    '''
 
                     bat 'az datafactory pipeline create-run --resource-group ' + rg +
                         ' --factory-name ' + adf +
-                        ' --name DemoPipeline --parameters inputPath=demo-source.csv outputPath=demo-output.csv'
+                        ' --name DemoPipeline --parameters @trigger_params.json'
 
                     echo "ADF pipeline triggered successfully"
                 }
@@ -193,6 +212,14 @@ pipeline {
 
         failure {
             echo "Pipeline failed. Check Jenkins logs."
+        }
+
+        // ✅ Clean up temp files regardless of outcome
+        always {
+            script {
+                bat 'if exist LinkedServiceTemp.json del LinkedServiceTemp.json'
+                bat 'if exist trigger_params.json del trigger_params.json'
+            }
         }
 
     }
