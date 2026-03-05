@@ -1,18 +1,16 @@
 {
-  "name": "ds_outputcsv",
-  "properties": {
-    "linkedServiceName": {
-      "referenceName": "ls_blobstorage",
-      "type": "LinkedServiceReference"
+  "type": "DelimitedText",
+  "linkedServiceName": {
+    "referenceName": "ls_blobstorage",
+    "type": "LinkedServiceReference"
+  },
+  "typeProperties": {
+    "location": {
+      "type": "AzureBlobStorageLocation",
+      "container": "output",
+      "fileName": "demo-output.csv"
     },
-    "type": "DelimitedText",
-    "typeProperties": {
-      "location": {
-        "type": "AzureBlobStorageLocation",
-        "container": "output",
-        "fileName": "demo-output.csv"
-      },
-      "columnDelimiter": ","
-    }
+    "columnDelimiter": ",",
+    "firstRowAsHeader": true
   }
 }
