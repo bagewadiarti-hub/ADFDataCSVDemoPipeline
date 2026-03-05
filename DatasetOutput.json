@@ -1,0 +1,18 @@
+{
+  "name": "ds_outputcsv",
+  "properties": {
+    "linkedServiceName": {
+      "referenceName": "ls_blobstorage",
+      "type": "LinkedServiceReference"
+    },
+    "type": "DelimitedText",
+    "typeProperties": {
+      "location": {
+        "type": "AzureBlobStorageLocation",
+        "container": "output",
+        "fileName": "demo-output.csv"
+      },
+      "columnDelimiter": ","
+    }
+  }
+}
