@@ -12,10 +12,7 @@
         "container": "output",
         "fileName": "demo-output.csv"
       },
-      "columnDelimiter": ",",
-      "quoteChar": "\"",
-      "escapeChar": "\\"
-    },
-    "schema": []
+      "columnDelimiter": ","
+    }
   }
 }
