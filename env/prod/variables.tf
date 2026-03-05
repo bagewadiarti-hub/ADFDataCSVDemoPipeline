@@ -1,1 +1,4 @@
-variable "env" { type = string, default = "prod" }
+variable "env" {
+  type    = string
+  default = "dev"
+}
