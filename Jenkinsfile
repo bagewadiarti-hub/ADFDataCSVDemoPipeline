@@ -9,9 +9,7 @@ pipeline {
 
     stages {
 
-        // -----------------------------
         // Azure Login
-        // -----------------------------
         stage('Azure Login (Bootstrap)') {
             steps {
                 withCredentials([
@@ -24,28 +22,17 @@ pipeline {
             }
         }
 
-        // -----------------------------
         // Fetch Secrets from Key Vault
-        // -----------------------------
         stage('Fetch Secrets from Key Vault') {
             steps {
                 script {
-                    env.ARM_SUBSCRIPTION_ID = bat(
-                        script: '@az keyvault secret show --vault-name ADFDemoKeyVault177 --name azure-subscription-id --query value -o tsv',
-                        returnStdout: true
-                    ).trim()
-                    
-                    env.STORAGE_CONN_STRING = bat(
-                        script: '@az keyvault secret show --vault-name ADFDemoKeyVault177 --name demo-storage-conn --query value -o tsv',
-                        returnStdout: true
-                    ).trim()
+                    env.ARM_SUBSCRIPTION_ID = bat(script: 'az keyvault secret show --vault-name ADFDemoKeyVault177 --name azure-subscription-id --query value -o tsv', returnStdout: true).trim()
+                    env.STORAGE_CONN_STRING = bat(script: 'az keyvault secret show --vault-name ADFDemoKeyVault177 --name demo-storage-conn --query value -o tsv', returnStdout: true).trim()
                 }
             }
         }
 
-        // -----------------------------
         // Terraform stages
-        // -----------------------------
         stage('Terraform Format Check') {
             steps { dir("env/${params.ENV}") { bat 'terraform fmt -check -recursive' } }
         }
@@ -53,13 +40,7 @@ pipeline {
         stage('Terraform Init') {
             steps {
                 dir("env/${params.ENV}") {
-                    bat """
-                    terraform init -upgrade -input=false ^
-                        -backend-config=resource_group_name=tf-rg-${params.ENV} ^
-                        -backend-config=storage_account_name=tfstoragedemo177${params.ENV} ^
-                        -backend-config=container_name=tfstate ^
-                        -backend-config=key=adf-${params.ENV}.tfstate
-                    """
+                    bat "terraform init -upgrade -input=false -backend-config=resource_group_name=tf-rg-${params.ENV} -backend-config=storage_account_name=tfstoragedemo177${params.ENV} -backend-config=container_name=tfstate -backend-config=key=adf-${params.ENV}.tfstate"
                 }
             }
         }
@@ -81,45 +62,31 @@ pipeline {
             steps { dir("env/${params.ENV}") { bat 'terraform apply -auto-approve tfplan' } }
         }
 
-        // -----------------------------
         // Deploy ADF Pipeline
-        // -----------------------------
         stage('Deploy DemoPipeline to ADF') {
             steps {
                 script {
                     def RG_NAME = "tf-rg-${params.ENV}"
                     def ADF_NAME = "adfdemo177${params.ENV}"
-
-                    bat "az datafactory pipeline create --resource-group ${RG_NAME} --factory-name ${ADF_NAME} --name DemoPipeline --file @DemoPipeline.json"
+                    bat "az datafactory pipeline create --resource-group ${RG_NAME} --factory-name ${ADF_NAME} --name DemoPipeline --file DemoPipeline.json"
                     echo "DemoPipeline deployed to ADF: ${ADF_NAME}"
                 }
             }
         }
 
-        // -----------------------------
         // Trigger ADF Pipeline
-        // -----------------------------
         stage('Trigger ADF Demo Pipeline') {
             steps {
                 script {
                     def RG_NAME = "tf-rg-${params.ENV}"
                     def ADF_NAME = "adfdemo177${params.ENV}"
-
-                    bat """
-                    az datafactory pipeline create-run ^
-                        --resource-group ${RG_NAME} ^
-                        --factory-name ${ADF_NAME} ^
-                        --name DemoPipeline ^
-                        --parameters "{\\"inputPath\\": \\"demo-source.csv\\", \\"outputPath\\": \\"demo-output.csv\\"}"
-                    """
+                    bat "az datafactory pipeline create-run --resource-group ${RG_NAME} --factory-name ${ADF_NAME} --name DemoPipeline --parameters inputPath=demo-source.csv outputPath=demo-output.csv"
                     echo "ADF DemoPipeline triggered successfully for ${params.ENV}!"
                 }
             }
         }
 
-        // -----------------------------
         // Verify Output
-        // -----------------------------
         stage('Verify Output') {
             steps {
                 echo "Check Azure Blob Storage 'output' container for 'demo-output.csv'. It should include uppercase NAME_UPPER column."
