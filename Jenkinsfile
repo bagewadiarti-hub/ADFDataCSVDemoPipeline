@@ -26,10 +26,10 @@ pipeline {
         stage('Terraform Format Check') {
             steps {
                 dir("env/${params.ENV}") {
-                bat 'terraform fmt -recursive' // formats files automatically
+                    bat 'terraform fmt -recursive'
+                }
             }
         }
-    }
 
         // 3️⃣ Terraform Init
         stage('Terraform Init') {
@@ -66,12 +66,14 @@ pipeline {
             steps {
                 dir("env/${params.ENV}") {
                     script {
+                        // Capture Terraform outputs cleanly on Windows
                         env.RG_NAME            = bat(script: 'terraform output -raw resource_group', returnStdout: true).trim()
                         env.ADF_NAME           = bat(script: 'terraform output -raw data_factory_name', returnStdout: true).trim()
                         env.STORAGE_ACCOUNT    = bat(script: 'terraform output -raw storage_account_name', returnStdout: true).trim()
                         env.INPUT_CONTAINER    = bat(script: 'terraform output -raw input_container_name', returnStdout: true).trim()
                         env.OUTPUT_CONTAINER   = bat(script: 'terraform output -raw output_container_name', returnStdout: true).trim()
                         env.STORAGE_CONN_STRING = bat(script: 'terraform output -raw storage_connection_string', returnStdout: true).trim()
+
                         echo "Terraform outputs fetched successfully!"
                         echo "RG=${env.RG_NAME}, ADF=${env.ADF_NAME}, Storage=${env.STORAGE_ACCOUNT}"
                     }
@@ -83,7 +85,8 @@ pipeline {
         stage('Deploy DemoPipeline to ADF') {
             steps {
                 script {
-                    bat "az datafactory pipeline create --resource-group ${env.RG_NAME} --factory-name ${env.ADF_NAME} --name DemoPipeline --file DemoPipeline.json"
+                    def pipelineFile = "${env.WORKSPACE}\\DemoPipeline.json"
+                    bat "az datafactory pipeline create --resource-group ${env.RG_NAME} --factory-name ${env.ADF_NAME} --name DemoPipeline --pipeline @${pipelineFile}"
                     echo "DemoPipeline deployed to ADF: ${env.ADF_NAME}"
                 }
             }
@@ -93,7 +96,7 @@ pipeline {
         stage('Trigger ADF Demo Pipeline') {
             steps {
                 script {
-                    bat "az datafactory pipeline create-run --resource-group ${env.RG_NAME} --factory-name ${env.ADF_NAME} --name DemoPipeline --parameters inputPath=demo-source.csv outputPath=demo-output.csv"
+                    bat "az datafactory pipeline run create --resource-group ${env.RG_NAME} --factory-name ${env.ADF_NAME} --pipeline-name DemoPipeline --parameters inputPath=demo-source.csv outputPath=demo-output.csv"
                     echo "ADF DemoPipeline triggered successfully for ${params.ENV}!"
                 }
             }
@@ -105,7 +108,6 @@ pipeline {
                 echo "Check Azure Blob Storage '${env.OUTPUT_CONTAINER}' container for 'demo-output.csv'. It should include uppercase NAME_UPPER column."
             }
         }
-
     }
 
     post {
